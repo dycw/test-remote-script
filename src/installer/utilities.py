@@ -1,28 +1,40 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from ipaddress import IPv4Address
 from logging import getLogger
 from os import environ
 from pathlib import Path
 from socket import AF_INET, SOCK_DGRAM, socket
+from stat import S_IXUSR
 from string import Template
 from subprocess import PIPE, CalledProcessError, check_call, check_output
-from typing import Any, Literal, NoReturn, assert_never, overload
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, assert_never, overload
 
+from requests import get
 from utilities.atomicwrites import writer
 from utilities.functools import cache
 from utilities.iterables import OneEmptyError, one
+from utilities.tempfile import TemporaryDirectory
 
 from installer.constants import NONROOT
 from installer.enums import Subnet
+from installer.settings import SETTINGS
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 _LOGGER = getLogger(__name__)
+
+
+def add_mode(path: Path, mode: int, /) -> None:
+    path.chmod(path.stat().st_mode | mode)
 
 
 def copy(src: Path, dest: Path, /, **kwargs: Any) -> None:
     text = src.read_text()
     if len(kwargs) >= 1:
-        text = Template(text).substitute(**kwargs)
+        text = substitute(text, **kwargs)
     with writer(dest, overwrite=True) as temp_dir:
         _ = temp_dir.write_text(text)
 
@@ -157,4 +169,42 @@ def _run_handle_error(cmd: str, error: CalledProcessError, /) -> NoReturn:
     raise error
 
 
-__all__ = ["copy", "has_non_root", "is_lxc", "is_proxmox", "run"]
+def substitute(text: str, /, **kwargs: Any) -> str:
+    return Template(text).substitute(**kwargs)
+
+
+@contextmanager
+def yield_github_download(owner: str, repo: str, filename: str, /) -> Iterator[Path]:
+    releases = f"{owner}/{repo}/releases"
+    url1 = f"https://api.github.com/repos/{releases}/latest"
+    resp1 = get(url1, timeout=SETTINGS.downloads.timeout)
+    resp1.raise_for_status()
+    tag = resp1.json()["tag_name"]
+    filename_use = substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
+    url2 = f"https://github.com/{releases}/download/{tag}/{filename_use}"
+
+    # Download with streaming
+    with get(url2, timeout=SETTINGS.downloads.timeout, stream=True) as resp2:
+        resp2.raise_for_status()
+        with TemporaryDirectory() as temp_dir:
+            temp_file = temp_dir / filename_use
+            with temp_file.open("wb") as fh:
+                for chunk in resp2.iter_content(
+                    chunk_size=SETTINGS.downloads.chunk_size
+                ):
+                    if chunk:
+                        _ = fh.write(chunk)
+            add_mode(temp_file, S_IXUSR)
+            yield temp_file
+
+
+__all__ = [
+    "add_mode",
+    "copy",
+    "has_non_root",
+    "is_lxc",
+    "is_proxmox",
+    "run",
+    "substitute",
+    "yield_github_download",
+]

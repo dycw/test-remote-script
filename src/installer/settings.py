@@ -18,7 +18,13 @@ class _Settings(SopsBaseSettings):
     ]
 
     subnets: _Subnets
+    downloads: _Downloads
     pbs: SecretStr
+
+
+class _Downloads(BaseSettings):
+    timeout: int
+    chunk_size: int
 
 
 class _Subnets(BaseSettings):
