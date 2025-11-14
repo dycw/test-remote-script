@@ -8,7 +8,7 @@ from utilities.logging import basic_config
 
 from installer import __version__
 from installer.constants import NONROOT
-from installer.utilities import run
+from installer.utilities import has_non_root, run
 
 _LOGGER = getLogger(__name__)
 
@@ -29,16 +29,12 @@ def _main(*, create_non_root: bool = False) -> None:
 
 
 def _create_non_root() -> None:
-    if _has_non_root():
+    if has_non_root():
         _LOGGER.info("%r already exists", NONROOT)
     else:
         _LOGGER.info("Creating %r...", NONROOT)
         run(f"useradd --create-home --shell /bin/bash {NONROOT}")
         run(f"usermod -aG sudo {NONROOT}")
-
-
-def _has_non_root() -> bool:
-    return run(f"id -u {NONROOT}", failable=True)
 
 
 if __name__ == "__main__":

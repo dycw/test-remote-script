@@ -1,14 +1,32 @@
 from __future__ import annotations
 
 from logging import getLogger
+from pathlib import Path
 from subprocess import PIPE, CalledProcessError, check_call, check_output
-from typing import TYPE_CHECKING, Literal, NoReturn, assert_never, overload
+from typing import Literal, NoReturn, assert_never, overload
 
-if TYPE_CHECKING:
-    from pathlib import Path
+from utilities.functools import cache
 
+from installer.constants import NONROOT
 
 _LOGGER = getLogger(__name__)
+
+
+def has_non_root() -> bool:
+    return run(f"id -u {NONROOT}", failable=True)
+
+
+@cache
+def is_lxc() -> bool:
+    try:
+        return run("systemd-detect-virt --container", output=True) == "container"
+    except CalledProcessError:
+        return False
+
+
+@cache
+def is_proxmox() -> bool:
+    return Path("/etc/pve").is_dir()
 
 
 @overload
@@ -109,4 +127,4 @@ def _run_handle_error(cmd: str, error: CalledProcessError, /) -> NoReturn:
     raise error
 
 
-__all__ = ["run"]
+__all__ = ["has_non_root", "is_lxc", "is_proxmox", "run"]
