@@ -40,7 +40,7 @@ def setup_bash() -> None:
     if is_pytest():
         return
     src = CONFIGS_BASH / "default.bash"
-    dest = Path("/etc/profile.d/default.conf")
+    dest = Path("/etc/profile.d/default.bash")
     if is_copied(src, dest):
         _LOGGER.info("%r -> %r is already copied", str(src), str(dest))
     else:
