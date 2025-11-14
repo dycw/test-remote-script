@@ -128,7 +128,9 @@ def _run(
     cmd: str, /, *, output: bool = False, cwd: Path | str | None = None
 ) -> str | None:
     if output:
-        return check_output(cmd, stderr=DEVNULL, shell=True, cwd=cwd, text=True)
+        return check_output(cmd, stderr=DEVNULL, shell=True, cwd=cwd, text=True).rstrip(
+            "\n"
+        )
     _ = check_call(cmd, stdout=DEVNULL, stderr=DEVNULL, shell=True, cwd=cwd)
     return None
 
