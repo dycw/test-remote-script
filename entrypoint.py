@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from logging import basicConfig, getLogger
 from os import getuid
 from pathlib import Path
-from shutil import rmtree, which
+from shutil import which
 from socket import gethostname
-from subprocess import DEVNULL, check_call
-from typing import Any, Self
+from subprocess import DEVNULL, CalledProcessError, check_call, check_output
+from typing import Any, Literal, Self, overload
 
 # THIS MODULE CANNOT CONTAIN ANY THIRD PARTY IMPORTS
 
@@ -23,39 +23,38 @@ _IS_ROOT = getuid() == 0
 _SUDO = "" if _IS_ROOT else "sudo "
 _REPO_URL = "https://github.com/dycw/test-remote-script.git"
 _REPO_ROOT = Path("/tmp/test-remote-script")  # noqa: S108
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 
 
 def _main() -> None:
     _LOGGER.info("Running entrypoint %s...", __version__)
     settings, args = _Settings.parse()
-    if (path := settings.root).is_dir():
-        _LOGGER.info("Removing %r...", str(path))
-        rmtree(path, ignore_errors=True)
-    _apt_install("git")
-    _LOGGER.info("Cloning %r to %r...", url := settings.url, str(path))
-    _run(f"git clone {url} {path}")
-    if (version := settings.version) is not None:
-        _LOGGER.info("Switching %r to %r...", str(path), version)
-        _run(f"git checkout {version}", cwd=path)
+    _ensure_repo_cloned(settings.url, settings.path)
+    _ensure_repo_version(settings.path, version=settings.version)
     _install_uv()
-    _LOGGER.info("Rest of the args: %s", args)
+    cmd = " ".join(["uv run python3 -m test_remote_script.main", *args])
+    _run(cmd, cwd=settings.path)
+    _LOGGER.info("Running: %r", cmd)
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
 class _Settings:
     url: str = _REPO_URL
-    root: Path = _REPO_ROOT
+    path: Path = _REPO_ROOT
     version: str | None = None
 
     @classmethod
     def parse(cls) -> tuple[Self, Any]:
-        parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+        parser = ArgumentParser(
+            formatter_class=ArgumentDefaultsHelpFormatter,
+            add_help=False,
+            suggest_on_error=True,
+        )
         _ = parser.add_argument(
             "--repo-url", type=str, default=_REPO_URL, help="Repo URL", dest="url"
         )
         _ = parser.add_argument(
-            "--repo-root", type=Path, default=_REPO_ROOT, help="Repo root", dest="root"
+            "--repo-path", type=Path, default=_REPO_ROOT, help="Repo path", dest="path"
         )
         _ = parser.add_argument(
             "--repo-version",
@@ -69,7 +68,7 @@ class _Settings:
         return settings, args
 
 
-def _apt_install(cmd: str, /) -> None:
+def _ensure_apt_installed(cmd: str, /) -> None:
     if which(cmd) is not None:
         return
     _LOGGER.info("Updating 'apt'...")
@@ -78,10 +77,33 @@ def _apt_install(cmd: str, /) -> None:
     _run(f"{_SUDO} apt install -y {cmd}")
 
 
+def _ensure_repo_cloned(url: str, path: Path, /) -> None:
+    if path.is_dir():
+        return
+    _ensure_apt_installed("git")
+    _LOGGER.info("Cloning %r to %r...", url, str(path))
+    _run(f"git clone {url} {path}")
+
+
+def _ensure_repo_version(path: Path | str, /, *, version: str | None = None) -> None:
+    if version is None:
+        return
+    try:
+        current = _run("git describe --tags --exact-match", output=True, cwd=path)
+    except CalledProcessError:
+        current = _run("git rev-parse --abbrev-ref HEAD", output=True, cwd=path)
+    if current == version:
+        _LOGGER.info("Pulling %r on %r...", str(path), current)
+        _run("git pull", cwd=path)
+        return
+    _LOGGER.info("Switching %r to %r...", str(path), version)
+    _run(f"git checkout {version}", cwd=path)
+
+
 def _install_uv() -> None:
     if which("uv") is not None:
         return
-    _apt_install("curl")
+    _ensure_apt_installed("curl")
     _LOGGER.info("Installing 'uv'...")
     url = "https://astral.sh/uv/install.sh"
     path = Path("/usr/local/bin")
@@ -89,8 +111,27 @@ def _install_uv() -> None:
     _run(f"chmod +x {path}/{{uv, uvx}}")
 
 
-def _run(cmd: str, /, *, cwd: Path | str | None = None) -> None:
+@overload
+def _run(
+    cmd: str, /, *, output: Literal[True], cwd: Path | str | None = None
+) -> str: ...
+@overload
+def _run(
+    cmd: str, /, *, output: Literal[False] = False, cwd: Path | str | None = None
+) -> None: ...
+@overload
+def _run(
+    cmd: str, /, *, output: bool = False, cwd: Path | str | None = None
+) -> str | None: ...
+def _run(
+    cmd: str, /, *, output: bool = False, cwd: Path | str | None = None
+) -> str | None:
+    if output:
+        return check_output(cmd, stderr=DEVNULL, shell=True, cwd=cwd, text=True).rstrip(
+            "\n"
+        )
     _ = check_call(cmd, stdout=DEVNULL, stderr=DEVNULL, shell=True, cwd=cwd)
+    return None
 
 
 if __name__ == "__main__":
