@@ -4,10 +4,18 @@ from typing import TYPE_CHECKING
 
 from pytest import mark, param
 
-from installer.utilities import has_non_root, is_lxc, is_proxmox, run
+from installer.enums import Subnet
+from installer.utilities import get_subnet, has_non_root, is_lxc, is_proxmox, run
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+class TestGetSubnet:
+    def test_main(self) -> None:
+        subnet = get_subnet()
+        assert isinstance(subnet, Subnet)
+        assert isinstance(subnet.n, int)
 
 
 class TestHasNonRoot:

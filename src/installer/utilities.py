@@ -1,15 +1,45 @@
 from __future__ import annotations
 
+from ipaddress import IPv4Address
 from logging import getLogger
+from os import environ
 from pathlib import Path
+from socket import AF_INET, SOCK_DGRAM, socket
+from string import Template
 from subprocess import PIPE, CalledProcessError, check_call, check_output
-from typing import Literal, NoReturn, assert_never, overload
+from typing import Any, Literal, NoReturn, assert_never, overload
 
+from utilities.atomicwrites import writer
 from utilities.functools import cache
+from utilities.iterables import OneEmptyError, one
 
 from installer.constants import NONROOT
+from installer.enums import Subnet
 
 _LOGGER = getLogger(__name__)
+
+
+def copy(src: Path, dest: Path, /, **kwargs: Any) -> None:
+    text = src.read_text()
+    if len(kwargs) >= 1:
+        text = Template(text).substitute(**kwargs)
+    with writer(dest, overwrite=True) as temp_dir:
+        _ = temp_dir.write_text(text)
+
+
+def get_subnet() -> Subnet:
+    try:
+        return Subnet[environ["SUBNET"]]
+    except KeyError:
+        with socket(AF_INET, SOCK_DGRAM) as s:
+            s.connect(("1.1.1.1", 80))
+            ip = IPv4Address(s.getsockname()[0])
+        n = int(str(ip).split(".")[2])
+        try:
+            return one(s for s in Subnet if s.n == n)
+        except OneEmptyError:
+            msg = f"Invalid IP; got {ip}"
+            raise ValueError(msg) from None
 
 
 def has_non_root() -> bool:
@@ -127,4 +157,4 @@ def _run_handle_error(cmd: str, error: CalledProcessError, /) -> NoReturn:
     raise error
 
 
-__all__ = ["has_non_root", "is_lxc", "is_proxmox", "run"]
+__all__ = ["copy", "has_non_root", "is_lxc", "is_proxmox", "run"]
