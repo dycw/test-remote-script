@@ -90,7 +90,10 @@ def _ensure_repo_version(path: Path | str, /, *, version: str | None = None) -> 
         return
     tag = _run("git describe --tags --exact-match", cwd=path)
     current = _run("git rev-parse --abbrev-ref HEAD", cwd=path) if tag == "" else tag
+    _LOGGER.info("Current version: %r", current)
     if current == version:
+        _LOGGER.info("Git pulling...")
+        _run("git pull", cwd=path)
         return
     _LOGGER.info("Switching %r to %r...", str(path), version)
     _run(f"git checkout {version}", cwd=path)
