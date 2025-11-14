@@ -10,10 +10,15 @@ from utilities.logging import basic_config
 
 import installer.setups
 from installer import __version__
-from installer.constants import CONFIGS_PROXMOX_STORAGE_CFG
+from installer.constants import CONFIGS_PROXMOX_STORAGE_CFG, CONFIGS_SSH_AUTHORIZED_KEYS
 from installer.envs.proxmox import setup_proxmox
 from installer.installs import install_docker
-from installer.setups import set_password, setup_ssh_config_d
+from installer.setups import (
+    set_password,
+    setup_ssh_authorized_keys,
+    setup_ssh_config_d,
+    setup_sshd_config_d,
+)
 from installer.utilities import is_lxc, is_proxmox
 
 _LOGGER = getLogger(__name__)
@@ -41,13 +46,20 @@ _LOGGER = getLogger(__name__)
     show_default=True,
     help="Proxmox `pbs-data` password",
 )
-@option("--password", type=str, default=None, show_default=True, help="Password")
 @option(
     "--create-non-root/--no-create-non-root",
     is_flag=True,
     default=False,
     show_default=True,
     help="Create 'nonroot'",
+)
+@option("--password", type=str, default=None, show_default=True, help="Password")
+@option(
+    "--authorized-keys",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+    default=CONFIGS_SSH_AUTHORIZED_KEYS,
+    show_default=True,
+    help="SSH authorized keys",
 )
 @option(
     "--docker/--no-docker",
@@ -73,7 +85,9 @@ def _main(
     if create_non_root:
         installer.setups.create_non_root()
     set_password(password=password)
+    setup_ssh_authorized_keys()
     setup_ssh_config_d()
+    setup_sshd_config_d()
     if docker:
         install_docker()
     _LOGGER.info("Finished running installer %s", __version__)

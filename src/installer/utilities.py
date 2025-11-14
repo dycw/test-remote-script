@@ -36,16 +36,30 @@ def apt_update() -> None:
     run("apt update -y")
 
 
-def is_copied(src: Path, dest: Path, /) -> bool:
-    return dest.is_file() and (src.read_bytes() == dest.read_bytes())
+def is_copied(src: Path | bytes | str, dest: Path, /) -> bool:
+    match src:
+        case Path():
+            return is_copied(src.read_bytes(), dest)
+        case bytes():
+            return dest.is_file() and (src == dest.read_bytes())
+        case str():
+            return dest.is_file() and (src == dest.read_text())
+        case never:
+            assert_never(never)
 
 
-def copy(src: Path, dest: Path, /, **kwargs: Any) -> None:
-    text = src.read_text()
-    if len(kwargs) >= 1:
-        text = substitute(text, **kwargs)
-    with writer(dest, overwrite=True) as temp_dir:
-        _ = temp_dir.write_text(text)
+def copy(src: Path | str, dest: Path, /, **kwargs: Any) -> None:
+    match src:
+        case Path():
+            return copy(src.read_text(), dest, **kwargs)
+        case str():
+            if len(kwargs) >= 1:
+                src = substitute(src, **kwargs)
+            with writer(dest, overwrite=True) as temp_dir:
+                _ = temp_dir.write_text(src)
+            return None
+        case never:
+            assert_never(never)
 
 
 def dpkg_install(path: Path, /) -> None:

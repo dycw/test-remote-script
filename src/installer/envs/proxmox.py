@@ -49,9 +49,9 @@ def _setup_pve_fake_subscription() -> None:
 def _setup_storage_cfg(*, src: Path = CONFIGS_PROXMOX_STORAGE_CFG) -> None:
     dest = Path("/etc/pve/storage.cfg")
     if is_copied(src, dest):
-        _LOGGER.info("%r is already copied", str(src))
+        _LOGGER.info("%r -> %r is already copied", str(src), str(dest))
     else:
-        _LOGGER.info("Copying %r...", str(src))
+        _LOGGER.info("Copying %r -> %r...", str(src), str(dest))
         copy(src, dest)
 
 
@@ -60,8 +60,9 @@ def _setup_pbs_data_pw(*, password: str | None = None) -> None:
     if password is None:
         _LOGGER.info("Skipping %r", str(dest))
     else:
-        _LOGGER.info("Writing %r...", str(dest))
-        copy(CONFIGS_PROXMOX / "pbs-data.pw", dest, password=password)
+        src = CONFIGS_PROXMOX / "pbs-data.pw"
+        _LOGGER.info("Copying %4 -> %r...", str(src), str(dest))
+        copy(src, dest, password=password)
 
 
 __all__ = ["setup_proxmox"]
