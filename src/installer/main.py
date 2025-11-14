@@ -14,7 +14,6 @@ _LOGGER = getLogger(__name__)
 
 
 @command(**CONTEXT_SETTINGS_HELP_OPTION_NAMES)
-@option("--asdf", is_flag=True, default=False, show_default=True)
 @option(
     "--create-non-root",
     is_flag=True,
@@ -22,9 +21,8 @@ _LOGGER = getLogger(__name__)
     show_default=True,
     help="Create 'nonroot'",
 )
-def _main(*, asdf: bool, create_non_root: bool = False) -> None:
+def _main(*, create_non_root: bool = False) -> None:
     _LOGGER.info("Running installer %s...", __version__)
-    _LOGGER.info("Got 'asdf' = %s", asdf)
     if create_non_root:
         _create_non_root()
     _LOGGER.info("Finished running installer %s", __version__)
