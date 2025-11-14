@@ -31,16 +31,13 @@ def _main() -> None:
     if (path := settings.root).is_dir():
         _LOGGER.info("Removing %r...", str(path))
         rmtree(path, ignore_errors=True)
-    if which("git") is None:
-        _LOGGER.info("Updating 'apt'...")
-        _run(f"{_SUDO} apt update -y")
-        _LOGGER.info("Installing 'git'...")
-        _run(f"{_SUDO} apt install -y git")
+    _apt_install("git")
     _LOGGER.info("Cloning %r to %r...", url := settings.url, str(path))
     _run(f"git clone {url} {path}")
     if (version := settings.version) is not None:
         _LOGGER.info("Switching %r to %r...", str(path), version)
         _run(f"git checkout {version}", cwd=path)
+    _install_uv()
     _LOGGER.info("Rest of the args: %s", args)
 
 
@@ -69,6 +66,26 @@ class _Settings:
         namespace, args = parser.parse_known_args()
         settings = cls(**vars(namespace))
         return settings, args
+
+
+def _apt_install(cmd: str, /) -> None:
+    if which(cmd) is not None:
+        return
+    _LOGGER.info("Updating 'apt'...")
+    _run(f"{_SUDO} apt update -y")
+    _LOGGER.info("Installing %r...", cmd)
+    _run(f"{_SUDO} apt install -y {cmd}")
+
+
+def _install_uv() -> None:
+    if which("uv") is not None:
+        return
+    _apt_install("curl")
+    _LOGGER.info("Installing 'uv'...")
+    url = "https://astral.sh/uv/install.sh"
+    path = Path("/usr/local/bin")
+    _run(f"curl -LsSf {url} | env UV_INSTALL_DIR={path} UV_NO_MODIFY_PATH=1 sh")
+    _run(f"chmod +x {path}/{{uv, uvx}}")
 
 
 def _run(cmd: str, /, *, cwd: Path | str | None = None) -> None:
