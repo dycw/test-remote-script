@@ -13,7 +13,7 @@ from installer import __version__
 from installer.constants import CONFIGS_PROXMOX_STORAGE_CFG
 from installer.envs.proxmox import setup_proxmox
 from installer.installs import install_docker
-from installer.setups import set_password
+from installer.setups import set_password, setup_ssh_config_d
 from installer.utilities import is_lxc, is_proxmox
 
 _LOGGER = getLogger(__name__)
