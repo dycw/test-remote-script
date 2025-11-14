@@ -8,7 +8,7 @@ from os import getuid
 from pathlib import Path
 from shutil import which
 from socket import gethostname
-from subprocess import DEVNULL, check_call
+from subprocess import DEVNULL, CalledProcessError, check_call
 from typing import Any, Self
 
 # THIS MODULE CANNOT CONTAIN ANY THIRD PARTY IMPORTS
@@ -88,8 +88,10 @@ def _ensure_repo_cloned(url: str, path: Path, /) -> None:
 def _ensure_repo_version(path: Path | str, /, *, version: str | None = None) -> None:
     if version is None:
         return
-    tag = _run("git describe --tags --exact-match", cwd=path)
-    current = _run("git rev-parse --abbrev-ref HEAD", cwd=path) if tag == "" else tag
+    try:
+        current = _run("git describe --tags --exact-match", cwd=path)
+    except CalledProcessError:
+        current = _run("git rev-parse --abbrev-ref HEAD", cwd=path)
     _LOGGER.info("Current version: %r", current)
     if current == version:
         _LOGGER.info("Git pulling...")
