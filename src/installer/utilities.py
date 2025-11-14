@@ -49,7 +49,7 @@ def has_non_root() -> bool:
 @cache
 def is_lxc() -> bool:
     try:
-        return run("systemd-detect-virt --container", output=True) == "container"
+        return run("systemd-detect-virt --container", output=True) == "lxc"
     except CalledProcessError:
         return False
 
