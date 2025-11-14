@@ -85,11 +85,11 @@ def _ensure_repo_cloned(url: str, path: Path, /) -> None:
     _run(f"git clone {url} {path}")
 
 
-def _ensure_repo_version(path: Path | str, /, *, version: str | None = None) -> None:
+def _ensure_repo_version(path: Path, /, *, version: str | None = None) -> None:
     if version is None:
         return
     tag = _run(
-        "git describe --tags --exact-match", output=True, cwd=path, failable=True
+        "git describe --tags --exact-match", output=True, failable=True, cwd=path
     )
     if tag is None:
         current = _run("git rev-parse --abbrev-ref HEAD", output=True, cwd=path)
@@ -127,8 +127,8 @@ def _run(
     /,
     *,
     output: Literal[True],
-    cwd: Path | str | None = None,
     failable: Literal[True],
+    cwd: Path | None = None,
 ) -> str | None: ...
 @overload
 def _run(
@@ -136,8 +136,8 @@ def _run(
     /,
     *,
     output: Literal[True],
-    cwd: Path | str | None = None,
     failable: Literal[False] = False,
+    cwd: Path | None = None,
 ) -> str: ...
 @overload
 def _run(
@@ -145,8 +145,17 @@ def _run(
     /,
     *,
     output: Literal[False] = False,
-    cwd: Path | str | None = None,
-    failable: bool = False,
+    failable: Literal[True],
+    cwd: Path | None = None,
+) -> bool: ...
+@overload
+def _run(
+    cmd: str,
+    /,
+    *,
+    output: Literal[False] = False,
+    failable: Literal[False] = False,
+    cwd: Path | None = None,
 ) -> None: ...
 @overload
 def _run(
@@ -154,36 +163,49 @@ def _run(
     /,
     *,
     output: bool = False,
-    cwd: Path | str | None = None,
     failable: bool = False,
-) -> str | None: ...
+    cwd: Path | None = None,
+) -> bool | str | None: ...
 def _run(
     cmd: str,
     /,
     *,
     output: bool = False,
-    cwd: Path | str | None = None,
     failable: bool = False,
-) -> str | None:
-    match output:
-        case False:
+    cwd: Path | None = None,
+) -> bool | str | None:
+    match output, failable:
+        case False, False:
             try:
-                _ = check_call(cmd, stdout=PIPE, stderr=PIPE, shell=True, cwd=cwd)
+                _run_check_call(cmd, cwd=cwd)
             except CalledProcessError as error:
-                if failable:
-                    return None
                 _run_handle_error(cmd, error)
-        case True:
+        case False, True:
             try:
-                return check_output(
-                    cmd, stderr=PIPE, shell=True, cwd=cwd, text=True
-                ).rstrip("\n")
+                _run_check_call(cmd, cwd=cwd)
+            except CalledProcessError:
+                return False
+            return True
+        case True, False:
+            try:
+                return _run_check_output(cmd, cwd=cwd)
             except CalledProcessError as error:
-                if failable:
-                    return None
                 _run_handle_error(cmd, error)
+        case True, True:
+            try:
+                return _run_check_output(cmd, cwd=cwd)
+            except CalledProcessError:
+                return None
         case never:
             assert_never(never)
+
+
+def _run_check_call(cmd: str, /, *, cwd: Path | None = None) -> None:
+    _ = check_call(cmd, stdout=PIPE, stderr=PIPE, shell=True, cwd=cwd)
+
+
+def _run_check_output(cmd: str, /, *, cwd: Path | None = None) -> str:
+    return check_output(cmd, stderr=PIPE, shell=True, cwd=cwd, text=True).rstrip("\n")
 
 
 def _run_handle_error(cmd: str, error: CalledProcessError, /) -> NoReturn:
