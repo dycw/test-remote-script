@@ -8,4 +8,3 @@ LOGGING_FORMAT = (
 )
 basicConfig(format=LOGGING_FORMAT, datefmt="%Y-%m-%d %H:%M:%S", style="{", level="INFO")
 _LOGGER = getLogger(__name__)
-# THIS MODULE CANNOT CONTAIN ANY THIRD PARTY IMPORTS
