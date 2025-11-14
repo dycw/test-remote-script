@@ -9,6 +9,7 @@ CONFIGS_PROXMOX = CONFIGS / "proxmox"
 CONFIGS_PROXMOX_STORAGE_CFG = CONFIGS_PROXMOX / "storage.cfg"
 
 
+ROOT = "root"
 NONROOT = "nonroot"
 HOME_ROOT = Path("/root")
 HOME_NONROOT = Path("/home/nonroot")
@@ -21,4 +22,5 @@ __all__ = [
     "HOME_NONROOT",
     "HOME_ROOT",
     "NONROOT",
+    "ROOT",
 ]
