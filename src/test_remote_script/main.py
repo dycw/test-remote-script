@@ -15,7 +15,7 @@ _LOGGER = getLogger(__name__)
 @option("--asdf", is_flag=True, default=False, show_default=False)
 def _main(*, asdf: bool) -> None:
     _LOGGER.info("Running main %s...", __version__)
-    _LOGGER.info("And....%s", asdf)
+    _LOGGER.info("Got 'asdf' = %s", asdf)
 
 
 if __name__ == "__main__":
