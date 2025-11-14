@@ -8,6 +8,7 @@ from utilities.logging import basic_config
 from test_remote_script import __version__
 
 _LOGGER = getLogger(__name__)
+print(__name__)  # # noqa: T201
 
 
 @command()
