@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 CONFIGS = cast("Path", files("configs").joinpath("z")).parent
-CONFIGS_BASH = CONFIGS / "bash"
+CONFIGS_PROFILE = CONFIGS / "profile"
 CONFIGS_PROXMOX = CONFIGS / "proxmox"
 CONFIGS_PROXMOX_STORAGE_CFG = CONFIGS_PROXMOX / "storage.cfg"
 CONFIGS_SSH = CONFIGS / "ssh"
@@ -20,7 +20,7 @@ HOME_NONROOT = Path("/home/nonroot")
 
 __all__ = [
     "CONFIGS",
-    "CONFIGS_BASH",
+    "CONFIGS_PROFILE",
     "CONFIGS_PROXMOX",
     "CONFIGS_PROXMOX_STORAGE_CFG",
     "CONFIGS_SSH",
