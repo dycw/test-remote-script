@@ -24,11 +24,20 @@ from installer.settings import SETTINGS
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+
 _LOGGER = getLogger(__name__)
 
 
 def add_mode(path: Path, mode: int, /) -> None:
     path.chmod(path.stat().st_mode | mode)
+
+
+def apt_update() -> None:
+    run("apt update -y")
+
+
+def is_copied(src: Path, dest: Path, /) -> bool:
+    return dest.is_file() and (src.read_bytes() == dest.read_bytes())
 
 
 def copy(src: Path, dest: Path, /, **kwargs: Any) -> None:
@@ -37,6 +46,10 @@ def copy(src: Path, dest: Path, /, **kwargs: Any) -> None:
         text = substitute(text, **kwargs)
     with writer(dest, overwrite=True) as temp_dir:
         _ = temp_dir.write_text(text)
+
+
+def dpkg_install(path: Path, /) -> None:
+    run(f"dpkg -i {path}")
 
 
 def get_subnet() -> Subnet:
@@ -182,8 +195,6 @@ def yield_github_download(owner: str, repo: str, filename: str, /) -> Iterator[P
     tag = resp1.json()["tag_name"]
     filename_use = substitute(filename, tag=tag, tag_without=tag.lstrip("v"))
     url2 = f"https://github.com/{releases}/download/{tag}/{filename_use}"
-
-    # Download with streaming
     with get(url2, timeout=SETTINGS.downloads.timeout, stream=True) as resp2:
         resp2.raise_for_status()
         with TemporaryDirectory() as temp_dir:
@@ -200,8 +211,11 @@ def yield_github_download(owner: str, repo: str, filename: str, /) -> Iterator[P
 
 __all__ = [
     "add_mode",
+    "apt_update",
     "copy",
+    "dpkg_install",
     "has_non_root",
+    "is_copied",
     "is_lxc",
     "is_proxmox",
     "run",
