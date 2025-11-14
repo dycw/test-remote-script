@@ -8,8 +8,8 @@ from os import getuid
 from pathlib import Path
 from shutil import which
 from socket import gethostname
-from subprocess import DEVNULL, CalledProcessError, check_call, check_output
-from typing import Any, Literal, Self, overload
+from subprocess import PIPE, CalledProcessError, check_call, check_output
+from typing import Any, Literal, NoReturn, Self, assert_never, overload
 
 # THIS MODULE CANNOT CONTAIN ANY THIRD PARTY IMPORTS
 
@@ -23,7 +23,7 @@ _IS_ROOT = getuid() == 0
 _SUDO = "" if _IS_ROOT else "sudo "
 _REPO_URL = "https://github.com/dycw/test-remote-script.git"
 _REPO_ROOT = Path("/tmp/test-remote-script")  # noqa: S108
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 
 
 def _main() -> None:
@@ -33,8 +33,9 @@ def _main() -> None:
     _ensure_repo_version(settings.path, version=settings.version)
     _install_uv()
     cmd = " ".join(["uv run python3 -m test_remote_script.main", *args])
-    _run(cmd, cwd=settings.path)
     _LOGGER.info("Running: %r", cmd)
+    _LOGGER.info("Running 2: %r", cmd)
+    _ = check_call(cmd, shell=True, cwd=settings.path)
 
 
 @dataclass(order=True, unsafe_hash=True, kw_only=True, slots=True)
@@ -88,14 +89,24 @@ def _ensure_repo_cloned(url: str, path: Path, /) -> None:
 def _ensure_repo_version(path: Path | str, /, *, version: str | None = None) -> None:
     if version is None:
         return
-    try:
-        current = _run("git describe --tags --exact-match", output=True, cwd=path)
-    except CalledProcessError:
+    tag = _run(
+        "git describe --tags --exact-match", output=True, cwd=path, failable=True
+    )
+    if tag is None:
         current = _run("git rev-parse --abbrev-ref HEAD", output=True, cwd=path)
+    else:
+        current = tag
     if current == version:
         _LOGGER.info("Pulling %r on %r...", str(path), current)
-        _run("git pull", cwd=path)
+        try:
+            _run("git pull", cwd=path)
+        except CalledProcessError:
+            _run("git checkout master", cwd=path)
+            _run("git pull", cwd=path)
+            _run(f"git branch -D {current}", cwd=path)
+            _run(f"git checkout {version}", cwd=path)
         return
+    _LOGGER.info("We got curr = %r, ver = %r", current, version)
     _LOGGER.info("Switching %r to %r...", str(path), version)
     _run(f"git checkout {version}", cwd=path)
 
@@ -113,25 +124,78 @@ def _install_uv() -> None:
 
 @overload
 def _run(
-    cmd: str, /, *, output: Literal[True], cwd: Path | str | None = None
+    cmd: str,
+    /,
+    *,
+    output: Literal[True],
+    cwd: Path | str | None = None,
+    failable: Literal[True],
+) -> str | None: ...
+@overload
+def _run(
+    cmd: str,
+    /,
+    *,
+    output: Literal[True],
+    cwd: Path | str | None = None,
+    failable: Literal[False] = False,
 ) -> str: ...
 @overload
 def _run(
-    cmd: str, /, *, output: Literal[False] = False, cwd: Path | str | None = None
+    cmd: str,
+    /,
+    *,
+    output: Literal[False] = False,
+    cwd: Path | str | None = None,
+    failable: bool = False,
 ) -> None: ...
 @overload
 def _run(
-    cmd: str, /, *, output: bool = False, cwd: Path | str | None = None
+    cmd: str,
+    /,
+    *,
+    output: bool = False,
+    cwd: Path | str | None = None,
+    failable: bool = False,
 ) -> str | None: ...
 def _run(
-    cmd: str, /, *, output: bool = False, cwd: Path | str | None = None
+    cmd: str,
+    /,
+    *,
+    output: bool = False,
+    cwd: Path | str | None = None,
+    failable: bool = False,
 ) -> str | None:
-    if output:
-        return check_output(cmd, stderr=DEVNULL, shell=True, cwd=cwd, text=True).rstrip(
-            "\n"
-        )
-    _ = check_call(cmd, stdout=DEVNULL, stderr=DEVNULL, shell=True, cwd=cwd)
-    return None
+    match output:
+        case False:
+            try:
+                _ = check_call(cmd, stdout=PIPE, stderr=PIPE, shell=True, cwd=cwd)
+            except CalledProcessError as error:
+                if failable:
+                    return None
+                _run_handle_error(cmd, error)
+        case True:
+            try:
+                return check_output(
+                    cmd, stderr=PIPE, shell=True, cwd=cwd, text=True
+                ).rstrip("\n")
+            except CalledProcessError as error:
+                if failable:
+                    return None
+                _run_handle_error(cmd, error)
+        case never:
+            assert_never(never)
+
+
+def _run_handle_error(cmd: str, error: CalledProcessError, /) -> NoReturn:
+    lines: list[str] = [f"Error running {cmd!r}"]
+    divider = 80 * "-"
+    if isinstance(stdout := error.stdout, str) and (stdout != ""):
+        lines.extend([divider, "stdout " + 73 * "-", stdout, divider])
+    if isinstance(stderr := error.stderr, str) and (stderr != ""):
+        lines.extend([divider, "stderr " + 73 * "-", stderr, divider])
+    _LOGGER.exception("\n".join(lines))
+    raise error
 
 
 if __name__ == "__main__":
