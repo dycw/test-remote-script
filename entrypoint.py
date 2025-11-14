@@ -7,7 +7,7 @@ from logging import basicConfig, getLogger
 from pathlib import Path
 from shutil import rmtree
 from socket import gethostname
-from subprocess import check_call
+from subprocess import DEVNULL, check_call
 from typing import Any, Self
 
 # THIS MODULE CANNOT CONTAIN ANY THIRD PARTY IMPORTS
@@ -20,7 +20,7 @@ basicConfig(format=_FORMAT, datefmt="%Y-%m-%d %H:%M:%S", style="{", level="INFO"
 _LOGGER = getLogger(__name__)
 _REPO_URL = "https://github.com/dycw/test-remote-script.git"
 _REPO_ROOT = Path("/tmp/test-remote-script")  # noqa: S108
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 def _main() -> None:
@@ -30,10 +30,18 @@ def _main() -> None:
         _LOGGER.info("Removing %r...", str(path))
         rmtree(path, ignore_errors=True)
     _LOGGER.info("Cloning %r to %r...", url := settings.url, str(path))
-    _ = check_call(f"git clone {url} {path}")
+    _ = check_call(
+        f"git clone {url} {path}", stdout=DEVNULL, stderr=DEVNULL, shell=True
+    )
     if (version := settings.version) is not None:
         _LOGGER.info("Switching %r to %r...", str(path), version)
-        _ = check_call(f"git checkout {version}", cwd=path)
+        _ = check_call(
+            f"git checkout {version}",
+            stdout=DEVNULL,
+            stderr=DEVNULL,
+            shell=True,
+            cwd=path,
+        )
     _LOGGER.info("Rest of the args: %s", args)
 
 
