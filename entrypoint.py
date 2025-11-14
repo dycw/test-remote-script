@@ -8,8 +8,8 @@ from os import getuid
 from pathlib import Path
 from shutil import which
 from socket import gethostname
-from subprocess import DEVNULL, CalledProcessError, check_call, check_output
-from typing import Any, Literal, Self, assert_never, overload
+from subprocess import PIPE, CalledProcessError, check_call, check_output
+from typing import Any, Literal, NoReturn, Self, assert_never, overload
 
 # THIS MODULE CANNOT CONTAIN ANY THIRD PARTY IMPORTS
 
@@ -89,7 +89,9 @@ def _ensure_repo_version(path: Path | str, /, *, version: str | None = None) -> 
     if version is None:
         return
     try:
-        current = _run("git describe --tags --exact-match", output=True, cwd=path)
+        current = _run(
+            "git describe --tags --exact-match", output=True, cwd=path, failable=True
+        )
     except CalledProcessError:
         current = _run("git rev-parse --abbrev-ref HEAD", output=True, cwd=path)
     if current == version:
@@ -119,38 +121,69 @@ def _install_uv() -> None:
 
 @overload
 def _run(
-    cmd: str, /, *, output: Literal[True], cwd: Path | str | None = None
+    cmd: str,
+    /,
+    *,
+    output: Literal[True],
+    cwd: Path | str | None = None,
+    failable: bool = False,
 ) -> str: ...
 @overload
 def _run(
-    cmd: str, /, *, output: Literal[False] = False, cwd: Path | str | None = None
+    cmd: str,
+    /,
+    *,
+    output: Literal[False] = False,
+    cwd: Path | str | None = None,
+    failable: bool = False,
 ) -> None: ...
 @overload
 def _run(
-    cmd: str, /, *, output: bool = False, cwd: Path | str | None = None
+    cmd: str,
+    /,
+    *,
+    output: bool = False,
+    cwd: Path | str | None = None,
+    failable: bool = False,
 ) -> str | None: ...
 def _run(
-    cmd: str, /, *, output: bool = False, cwd: Path | str | None = None
+    cmd: str,
+    /,
+    *,
+    output: bool = False,
+    cwd: Path | str | None = None,
+    failable: bool = False,
 ) -> str | None:
     match output:
         case False:
-            _ = check_call(cmd, stdout=DEVNULL, stderr=DEVNULL, shell=True, cwd=cwd)
-            return None
+            try:
+                _ = check_call(cmd, stdout=PIPE, stderr=PIPE, shell=True, cwd=cwd)
+            except CalledProcessError as error:
+                if failable:
+                    return None
+                _run_handle_error(cmd, error)
         case True:
             try:
                 return check_output(
-                    cmd, stderr=DEVNULL, shell=True, cwd=cwd, text=True
+                    cmd, stderr=PIPE, shell=True, cwd=cwd, text=True
                 ).rstrip("\n")
             except CalledProcessError as error:
-                _LOGGER.exception(
-                    "Failed running %r:\n\nstdout:\n%s\n\nstderr:\n%s",
-                    cmd,
-                    error.stdout,
-                    error.stderr,
-                )
-                raise
+                if failable:
+                    return ""
+                _run_handle_error(cmd, error)
         case never:
             assert_never(never)
+
+
+def _run_handle_error(cmd: str, error: CalledProcessError, /) -> NoReturn:
+    lines: list[str] = [f"Error running {cmd!r}"]
+    divider = 80 * "-"
+    if isinstance(stdout := error.stdout, str) and (stdout != ""):
+        lines.extend([divider, "stdout " + 73 * "-", stdout, divider])
+    if isinstance(stderr := error.stderr, str) and (stderr != ""):
+        lines.extend([divider, "stderr " + 73 * "-", stderr, divider])
+    _LOGGER.exception("\n".join(lines))
+    raise error
 
 
 if __name__ == "__main__":
