@@ -9,8 +9,9 @@ from utilities.logging import basic_config
 
 from installer import __version__
 from installer.constants import CONFIGS, NONROOT
+from installer.installs import install_docker
 from installer.settings import SETTINGS
-from installer.utilities import copy, has_non_root, is_proxmox, run
+from installer.utilities import copy, has_non_root, is_lxc, is_proxmox, run
 
 _LOGGER = getLogger(__name__)
 
@@ -30,12 +31,17 @@ _LOGGER = getLogger(__name__)
     show_default=True,
     help="Create 'nonroot'",
 )
-def _main(*, proxmox: bool, create_non_root: bool) -> None:
+@option(
+    "--docker", is_flag=True, default=is_lxc(), show_default=True, help="Install Docker"
+)
+def _main(*, proxmox: bool, create_non_root: bool, docker: bool) -> None:
     _LOGGER.info("Running installer %s...", __version__)
     if proxmox:
         _setup_proxmox()
     if create_non_root:
         _create_non_root()
+    if docker:
+        install_docker()
     _LOGGER.info("Finished running installer %s", __version__)
 
 
