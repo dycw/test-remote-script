@@ -4,8 +4,9 @@ from __future__ import annotations
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from dataclasses import dataclass
 from logging import basicConfig, getLogger
+from os import geteuid
 from pathlib import Path
-from shutil import rmtree
+from shutil import rmtree, which
 from socket import gethostname
 from subprocess import DEVNULL, check_call
 from typing import Any, Self
@@ -18,6 +19,7 @@ _FORMAT = (
 )
 basicConfig(format=_FORMAT, datefmt="%Y-%m-%d %H:%M:%S", style="{", level="INFO")
 _LOGGER = getLogger(__name__)
+_SUDO = geteuid() != 0
 _REPO_URL = "https://github.com/dycw/test-remote-script.git"
 _REPO_ROOT = Path("/tmp/test-remote-script")  # noqa: S108
 __version__ = "0.1.4"
@@ -29,19 +31,16 @@ def _main() -> None:
     if (path := settings.root).is_dir():
         _LOGGER.info("Removing %r...", str(path))
         rmtree(path, ignore_errors=True)
+    if which("git") is None:
+        _LOGGER.info("Updating 'apt'...")
+        _run(f"{_SUDO} apt update -y")
+        _LOGGER.info("Installing 'git'...")
+        _run(f"{_SUDO} apt install -y git")
     _LOGGER.info("Cloning %r to %r...", url := settings.url, str(path))
-    _ = check_call(
-        f"git clone {url} {path}", stdout=DEVNULL, stderr=DEVNULL, shell=True
-    )
+    _run(f"git clone {url} {path}")
     if (version := settings.version) is not None:
         _LOGGER.info("Switching %r to %r...", str(path), version)
-        _ = check_call(
-            f"git checkout {version}",
-            stdout=DEVNULL,
-            stderr=DEVNULL,
-            shell=True,
-            cwd=path,
-        )
+        _run(f"git checkout {version}", cwd=path)
     _LOGGER.info("Rest of the args: %s", args)
 
 
@@ -70,6 +69,10 @@ class _Settings:
         namespace, args = parser.parse_known_args()
         settings = cls(**vars(namespace))
         return settings, args
+
+
+def _run(cmd: str, /, *, cwd: Path | str | None = None) -> None:
+    _ = check_call(cmd, stdout=DEVNULL, stderr=DEVNULL, shell=True, cwd=cwd)
 
 
 if __name__ == "__main__":
