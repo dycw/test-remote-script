@@ -92,7 +92,7 @@ def _ensure_repo_version(path: Path | str, /, *, version: str | None = None) -> 
         current = _run("git describe --tags --exact-match", cwd=path)
     except CalledProcessError:
         current = _run("git rev-parse --abbrev-ref HEAD", cwd=path)
-    _LOGGER.info("Current version: %r", current)
+    _LOGGER.info("Got current=%r, version=%r", current, version)
     if current == version:
         _LOGGER.info("Git pulling...")
         _run("git pull", cwd=path)
