@@ -4,7 +4,7 @@ from __future__ import annotations
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from dataclasses import dataclass
 from logging import basicConfig, getLogger
-from os import geteuid
+from os import getuid
 from pathlib import Path
 from shutil import rmtree, which
 from socket import gethostname
@@ -19,10 +19,11 @@ _FORMAT = (
 )
 basicConfig(format=_FORMAT, datefmt="%Y-%m-%d %H:%M:%S", style="{", level="INFO")
 _LOGGER = getLogger(__name__)
-_SUDO = geteuid() != 0
+_IS_ROOT = getuid() == 0
+_SUDO = "" if _IS_ROOT else "sudo "
 _REPO_URL = "https://github.com/dycw/test-remote-script.git"
 _REPO_ROOT = Path("/tmp/test-remote-script")  # noqa: S108
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 
 
 def _main() -> None:
