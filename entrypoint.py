@@ -180,7 +180,7 @@ def _run(
                 ).rstrip("\n")
             except CalledProcessError as error:
                 if failable:
-                    return ""
+                    return None
                 _run_handle_error(cmd, error)
         case never:
             assert_never(never)
