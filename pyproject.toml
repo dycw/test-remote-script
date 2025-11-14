@@ -17,13 +17,13 @@
     "coloredlogs >=15.0.1",
     "dycw-utilities >=0.169.5",
   ]
-  name = "test-remote-script"
+  name = "installer"
   readme = "README.md"
   requires-python = ">= 3.14"
-  version = "0.1.7"
+  version = "0.1.8"
 
   [project.scripts]
-    test-remote-script = "test_remote_script.main:_main"
+    installer = "installer.main:_main"
 
 
 # tool
@@ -32,7 +32,7 @@
   # bump-my-version
   [tool.bumpversion]
     allow_dirty = true
-    current_version = "0.1.7"
+    current_version = "0.1.8"
 
     [[tool.bumpversion.files]]
       filename = "entrypoint.py"
@@ -40,7 +40,7 @@
       search = "__version__ = \"{current_version}\""
 
     [[tool.bumpversion.files]]
-      filename = "src/test_remote_script/__init__.py"
+      filename = "src/installer/__init__.py"
       replace = "__version__ = \"{new_version}\""
       search = "__version__ = \"{current_version}\""
 

@@ -3,10 +3,9 @@ from __future__ import annotations
 from logging import getLogger
 
 from click import command, option
+from test_remote_script import __version__
 from utilities.click import CONTEXT_SETTINGS_HELP_OPTION_NAMES
 from utilities.logging import basic_config
-
-from test_remote_script import __version__
 
 _LOGGER = getLogger(__name__)
 

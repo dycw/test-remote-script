@@ -22,8 +22,8 @@ _LOGGER = getLogger(__name__)
 _IS_ROOT = getuid() == 0
 _SUDO = "" if _IS_ROOT else "sudo "
 _REPO_URL = "https://github.com/dycw/test-remote-script.git"
-_REPO_ROOT = Path("/tmp/test-remote-script")  # noqa: S108
-__version__ = "0.1.7"
+_REPO_ROOT = Path("/tmp/installer")  # noqa: S108
+__version__ = "0.1.8"
 
 
 def _main() -> None:
@@ -32,7 +32,7 @@ def _main() -> None:
     _ensure_repo_cloned(settings.url, settings.path)
     _ensure_repo_version(settings.path, version=settings.version)
     _install_uv()
-    cmd = " ".join(["uv run python3 -m test_remote_script.main", *args])
+    cmd = " ".join(["uv run python3 -m installer.main", *args])
     _LOGGER.info("Running: %r", cmd)
     _LOGGER.info("Running 2: %r", cmd)
     _ = check_call(cmd, shell=True, cwd=settings.path)
