@@ -103,22 +103,26 @@ def setup_ssh_config_d() -> None:
 
 
 def setup_ssh_known_hosts() -> None:
-    path = Path("/etc/ssh/known_hosts")
-    touch(path)
     if is_pytest():
         return
-    for hostname, port in [("github.com", None), ("gitlab.qrt", 2424)]:
-        _ = run(f"ssh-keygen -R {hostname}", failable=True)
-        parts: list[str] = ["ssh-keyscan -H -q -t ed25519"]
-        if port is not None:
-            parts.append(f"-p {port}")
-        parts.append(f"{hostname} >> {path}")
-        cmd = " ".join(parts)
-        for _ in range(1, SETTINGS.ssh.max_tries + 1):
-            if run(cmd, failable=True):
-                return
-        msg = f"{cmd!r} failed after {SETTINGS.ssh.max_tries} tries"
-        raise RuntimeError(msg)
+    path = Path("/etc/ssh/known_hosts")
+    touch(path)
+    for known_host in SETTINGS.ssh.known_hosts:
+        _setup_ssh_known_hosts_one(known_host.hostname, port=known_host.port)
+
+
+def _setup_ssh_known_hosts_one(hostname: str, /, *, port: int | None = None) -> None:
+    _ = run(f"ssh-keygen -R {hostname}", failable=True)
+    parts: list[str] = ["ssh-keyscan -H -q -t ed25519"]
+    if port is not None:
+        parts.append(f"-p {port}")
+    parts.append(f"{hostname} >> /etc/ssh/known_hosts")
+    cmd = " ".join(parts)
+    for _ in range(1, SETTINGS.ssh.max_tries + 1):
+        if run(cmd, failable=True):
+            return
+    msg = f"{cmd!r} failed after {SETTINGS.ssh.max_tries} tries"
+    raise RuntimeError(msg)
 
 
 def setup_sshd_config_d() -> None:
