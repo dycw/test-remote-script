@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from fcntl import ioctl
 from ipaddress import IPv4Address
 from logging import getLogger
 from os import environ
@@ -8,6 +9,7 @@ from pathlib import Path
 from socket import AF_INET, SOCK_DGRAM, socket
 from stat import S_IXUSR
 from string import Template
+from struct import pack, unpack
 from subprocess import PIPE, CalledProcessError, check_call, check_output
 from typing import TYPE_CHECKING, Any, Literal, NoReturn, assert_never, overload
 
@@ -27,6 +29,9 @@ if TYPE_CHECKING:
 
 
 _LOGGER = getLogger(__name__)
+_FS_IMMUTABLE_FL = 0x00000010
+_FS_IOC_GETFLAGS = 0x80086601
+_FS_IOC_SETFLAGS = 0x40086602
 
 
 def add_mode(path: Path, mode: int, /) -> None:
@@ -43,6 +48,14 @@ def apt_installed(pkg: str, /) -> bool:
 
 def apt_update() -> None:
     run("apt update -y")
+
+
+def clear_immutable(path: Path, /) -> None:
+    with path.open("rb") as fh:
+        flags = _get_flags(fh.fileno())
+        new_flags = flags & ~_FS_IMMUTABLE_FL
+        buf = pack("I", new_flags)
+        _ = ioctl(fh.fileno(), _FS_IOC_SETFLAGS, buf)
 
 
 def is_copied(src: Path | bytes | str, dest: Path, /) -> bool:
@@ -66,6 +79,8 @@ def copy(src: Path | str, dest: Path, /, **kwargs: Any) -> None:
                 src = substitute(src, **kwargs)
             if is_pytest():
                 return None
+            if dest.is_file():
+                clear_immutable(dest)
             with writer(dest, overwrite=True) as temp_dir:
                 _ = temp_dir.write_text(src)
             return None
@@ -94,6 +109,14 @@ def get_subnet() -> Subnet:
 
 def has_non_root() -> bool:
     return run(f"id -u {NONROOT}", failable=True)
+
+
+def is_immutable(path: Path, /) -> bool:
+    with path.open("rb") as fh:
+        buf = bytearray(4)
+        ioctl(fh.fileno(), _FS_IOC_GETFLAGS, buf)
+        flags = unpack("I", buf)[0]
+        return bool(flags & _FS_IMMUTABLE_FL)
 
 
 @cache
@@ -209,6 +232,14 @@ def _run_handle_error(cmd: str, error: CalledProcessError, /) -> NoReturn:
     raise error
 
 
+def set_immutable(path: Path, /) -> None:
+    with path.open("rb") as fh:
+        flags = _get_flags(fh.fileno())
+        new_flags = flags | _FS_IMMUTABLE_FL
+        buf = pack("I", new_flags)
+        _ = ioctl(fh.fileno(), _FS_IOC_SETFLAGS, buf)
+
+
 def substitute(text: str, /, **kwargs: Any) -> str:
     return Template(text).substitute(**kwargs)
 
@@ -242,20 +273,29 @@ def yield_github_download(owner: str, repo: str, filename: str, /) -> Iterator[P
             yield temp_file
 
 
+def _get_flags(fd: int, /) -> int:
+    buf = bytearray(4)
+    ioctl(fd, _FS_IOC_GETFLAGS, buf)
+    return unpack("I", buf)[0]
+
+
 __all__ = [
     "add_mode",
     "apt_install",
     "apt_installed",
     "apt_update",
+    "clear_immutable",
     "copy",
     "dpkg_install",
     "get_subnet",
     "has_non_root",
     "is_copied",
+    "is_immutable",
     "is_lxc",
     "is_proxmox",
     "is_vm",
     "run",
+    "set_immutable",
     "substitute",
     "touch",
     "yield_github_download",

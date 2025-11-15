@@ -17,6 +17,7 @@ from installer.setups import (
     set_password,
     setup_git,
     setup_profile,
+    setup_resolv_conf,
     setup_ssh_authorized_keys,
     setup_ssh_config_d,
     setup_ssh_known_hosts,
@@ -92,9 +93,10 @@ def _main(
     set_password(password=password)
     setup_git()
     setup_profile()
+    setup_resolv_conf()
     setup_ssh_authorized_keys(ssh_authorized_keys)
     setup_ssh_config_d()
-    setup_ssh_known_hosts()
+    setup_ssh_known_hosts()  # after `resolv.conf`
     setup_sshd_config_d()
     setup_subnet_env_var()
     install_starship()

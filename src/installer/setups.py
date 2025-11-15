@@ -12,7 +12,9 @@ from installer.utilities import (
     get_subnet,
     has_non_root,
     is_copied,
+    is_immutable,
     run,
+    set_immutable,
     substitute,
     touch,
 )
@@ -65,6 +67,23 @@ def setup_profile() -> None:
         copy(src, dest)
 
 
+def setup_resolv_conf() -> None:
+    try:
+        subnet = get_subnet()
+    except (KeyError, ValueError):
+        _LOGGER.warning("Unable to determine subnet")
+        return
+    src = CONFIGS / "networking/resolv.conf"
+    text = substitute(src.read_text(), n=subnet.n, subnet=subnet.value)
+    dest = Path("/etc/resolv.conf")
+    if is_copied(text, dest) and is_immutable(dest):
+        _LOGGER.info("%r -> %r is already copied", str(src), str(dest))
+    else:
+        _LOGGER.info("Copying %r -> %r...", str(src), str(dest))
+        copy(text, dest)
+        set_immutable(dest)
+
+
 def setup_subnet_env_var() -> None:
     try:
         subnet = get_subnet()
@@ -103,6 +122,7 @@ def setup_ssh_config_d() -> None:
 
 
 def setup_ssh_known_hosts() -> None:
+    # after `resolv.conf`
     if is_pytest():
         return
     path = Path("/etc/ssh/known_hosts")
@@ -140,6 +160,7 @@ __all__ = [
     "set_password",
     "setup_git",
     "setup_profile",
+    "setup_resolv_conf",
     "setup_ssh_authorized_keys",
     "setup_ssh_config_d",
     "setup_ssh_known_hosts",
