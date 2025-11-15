@@ -3,8 +3,6 @@ from __future__ import annotations
 from logging import getLogger
 from pathlib import Path
 
-from utilities.os import is_pytest
-
 from installer.constants import CONFIGS_PROFILE, CONFIGS_SSH, NONROOT, ROOT
 from installer.utilities import (
     copy,
@@ -44,8 +42,6 @@ def _set_password_one(username: str, password: str, /) -> None:
 
 
 def setup_profile() -> None:
-    if is_pytest():
-        return
     src = CONFIGS_PROFILE / "default.sh"
     dest = Path("/etc/profile.d/default.sh")
     if is_copied(src, dest):
@@ -72,8 +68,6 @@ def setup_subnet_env_var() -> None:
 
 
 def setup_ssh_authorized_keys(*srcs: Path) -> None:
-    if is_pytest():
-        return
     src_desc = ", ".join(map(str, srcs))
     text = "\n".join(s.read_text() for s in srcs)
     dest = Path("/etc/ssh/authorized_keys")
@@ -85,8 +79,6 @@ def setup_ssh_authorized_keys(*srcs: Path) -> None:
 
 
 def setup_ssh_config_d() -> None:
-    if is_pytest():
-        return
     src = CONFIGS_SSH / "ssh_config.d/default.conf"
     dest = Path("/etc/ssh/ssh_config.d/default.conf")
     if is_copied(src, dest):
@@ -97,8 +89,6 @@ def setup_ssh_config_d() -> None:
 
 
 def setup_sshd_config_d() -> None:
-    if is_pytest():
-        return
     src = CONFIGS_SSH / "sshd_config.d/default.conf"
     dest = Path("/etc/ssh/sshd_config.d/default.conf")
     if is_copied(src, dest):

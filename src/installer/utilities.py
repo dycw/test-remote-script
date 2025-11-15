@@ -15,6 +15,7 @@ from requests import get
 from utilities.atomicwrites import writer
 from utilities.functools import cache
 from utilities.iterables import OneEmptyError, one
+from utilities.os import is_pytest
 from utilities.tempfile import TemporaryDirectory
 
 from installer.constants import NONROOT
@@ -63,6 +64,8 @@ def copy(src: Path | str, dest: Path, /, **kwargs: Any) -> None:
         case str():
             if len(kwargs) >= 1:
                 src = substitute(src, **kwargs)
+            if is_pytest():
+                return None
             with writer(dest, overwrite=True) as temp_dir:
                 _ = temp_dir.write_text(src)
             return None
